@@ -24,3 +24,9 @@ class HealthEndpointTests(TestCase):
         response = self.client.get(reverse("health"), HTTP_ORIGIN="http://localhost:3000")
 
         self.assertEqual(response["Access-Control-Allow-Origin"], "http://localhost:3000")
+
+    def test_health_is_public_without_session(self):
+        response = self.client.get(reverse("health"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("WWW-Authenticate", response)
