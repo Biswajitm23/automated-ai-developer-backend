@@ -1,0 +1,28 @@
+# Environment files and credentials (only .env.example is committed)
+.env
+.env.*
+!.env.example
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+staticfiles/
+media/
+
+# Local tooling and editor state
+.claude/settings.local.json
+.claude/cache/
+.claude/logs/
+.a5c/
+.mcp.json
+.vscode/
+.idea/
+.DS_Store
+*.log
