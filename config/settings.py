@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "core",
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -139,6 +140,14 @@ MAILERS = {
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"]
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
+    # Session auth with CSRF; unauthenticated requests get 401, forbidden ones 403.
+    "DEFAULT_AUTHENTICATION_CLASSES": ["accounts.authentication.SessionAuthentication"],
+    # Every endpoint requires login unless it explicitly opts out (e.g. health, login).
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_THROTTLE_RATES": {"login": env("LOGIN_THROTTLE_RATE", "20/minute")},
+    # Number of trusted reverse proxies in front of Django. 0 = ignore X-Forwarded-For
+    # (clients could otherwise spoof it to dodge the login throttle).
+    "NUM_PROXIES": int(env("DRF_NUM_PROXIES", "0")),
 }
 
 
@@ -147,3 +156,20 @@ REST_FRAMEWORK = {
 CORS_ALLOWED_ORIGINS = env_list(
     "CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
 )
+# The frontend sends the session cookie with credentials: "include".
+CORS_ALLOW_CREDENTIALS = env_bool("CORS_ALLOW_CREDENTIALS", True)
+
+
+# Sessions and CSRF — the frontend origin must be trusted for its POSTs to pass
+# Django's Origin check.
+
+CSRF_TRUSTED_ORIGINS = env_list(
+    "CSRF_TRUSTED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+)
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+# Set both to true in any HTTPS deployment.
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", False)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", False)
+SESSION_COOKIE_AGE = int(env("SESSION_COOKIE_AGE", "28800"))  # 8 hours
