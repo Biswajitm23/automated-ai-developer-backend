@@ -3,6 +3,12 @@ from django.urls import path
 from . import admin_views, employee_views, views
 
 urlpatterns = [
+    path("admin/summary/", admin_views.AdminSummaryView.as_view(), name="admin-summary"),
+    path(
+        "admin/leave-requests/",
+        admin_views.AdminLeaveRequestListView.as_view(),
+        name="admin-leave-requests",
+    ),
     path(
         "admin/leave-requests/<int:pk>/",
         admin_views.AdminLeaveRequestDetailView.as_view(),

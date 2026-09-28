@@ -282,16 +282,22 @@ Cancelling takes the same locks as admin decisions, so a cancel racing an
 approval, a rejection or another cancel has exactly one winner (the other gets
 409) and the balance changes once. Cancelled requests stay in the history.
 
-## Admin review and decisions (ELM-007)
+## Admin leave requests: dashboard, review and decisions (ELM-007, ELM-009)
 
 For signed-in users with role `ADMIN` (employees get 403, anonymous 401).
 Requests of deactivated employees can still be reviewed and decided.
 
 | Method & path | Body | Success | Errors |
 |---|---|---|---|
+| `GET /api/admin/summary/` (ELM-009) | – | 200 `{counts: {PENDING, APPROVED, REJECTED, CANCELLED, total}, pending_count, active_employee_count, recent_requests}` (the newest 8 requests) | – |
+| `GET /api/admin/leave-requests/` (ELM-009) | Query: `employee` (id), `status`, `leave_type`, `date_from`, `date_to`, `page`, `page_size`; blank values are ignored | 200 paginated requests, newest first, plus `counts` for every filter except `status` | 400 unknown employee/status/type ("Select a valid choice."), bad date, `date_to` before `date_from` |
 | `GET /api/admin/leave-requests/{id}/` | – | 200 request plus `balances` (both leave types, for the year of its start date) | 404 |
 | `POST /api/admin/leave-requests/{id}/approve/` | `remarks` optional (≤ 500) | 200 request, `APPROVED`: reserved days become used days | 404; 409 already processed, or the allowance no longer covers it |
 | `POST /api/admin/leave-requests/{id}/reject/` | `remarks` required (1–500) | 200 request, `REJECTED`: reserved days are released | 400 missing remarks; 404; 409 already processed |
+
+The date filter matches requests that overlap the range
+(`start_date <= date_to` and `end_date >= date_from`; either bound may be
+omitted). The list and the counts include deactivated employees' requests.
 
 A decision records `reviewed_by`, `reviewed_at` and `review_remarks`, which the
 employee sees in `GET /api/leave-requests/{id}/`. Status and balance are
