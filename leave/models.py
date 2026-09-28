@@ -45,3 +45,72 @@ class Allowance(models.Model):
 
     def __str__(self) -> str:
         return f"{self.employee.get_username()} {self.year} {self.leave_type}: {self.days}"
+
+
+class RequestStatus(models.TextChoices):
+    PENDING = "PENDING", "Pending"
+    APPROVED = "APPROVED", "Approved"
+    REJECTED = "REJECTED", "Rejected"
+    CANCELLED = "CANCELLED", "Cancelled"
+
+
+# Statuses that hold balance: pending reserves it, approved uses it.
+ACTIVE_STATUSES = (RequestStatus.PENDING, RequestStatus.APPROVED)
+
+REASON_MAX_LENGTH = 500
+REMARKS_MAX_LENGTH = 500
+
+
+class LeaveRequest(models.Model):
+    """One full-day leave request. Create and change it only through leave.services,
+    which applies the Project Brief rules under a per-employee lock."""
+
+    employee = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="leave_requests"
+    )
+    leave_type = models.CharField(max_length=16, choices=LeaveType.choices)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    # Monday–Friday days in [start_date, end_date], fixed when the request is created.
+    working_days = models.PositiveSmallIntegerField()
+    reason = models.TextField(max_length=REASON_MAX_LENGTH)
+    status = models.CharField(
+        max_length=16, choices=RequestStatus.choices, default=RequestStatus.PENDING
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="reviewed_leave_requests",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_remarks = models.TextField(max_length=REMARKS_MAX_LENGTH, blank=True, default="")
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(end_date__gte=models.F("start_date")),
+                name="leave_request_end_not_before_start",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(working_days__gte=1), name="leave_request_has_working_days"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(leave_type__in=LeaveType.values), name="leave_request_known_type"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(status__in=RequestStatus.values), name="leave_request_known_status"
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["employee", "status", "start_date"]),
+            models.Index(fields=["status", "-created_at"]),
+        ]
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self) -> str:
+        return f"#{self.pk} {self.employee.get_username()} {self.leave_type} {self.start_date}–{self.end_date} {self.status}"

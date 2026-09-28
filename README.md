@@ -260,6 +260,35 @@ Administrator accounts are still created with `create_admin` or in the Django
 admin site (**Users → Add user**, then choose the role in the **Profile**
 section, which also has Department and Employee ID).
 
+## Leave rules and balances (ELM-004)
+
+The rules from the Project Brief live in the `leave` app and are used by every
+endpoint that creates or changes a leave request (ELM-005 onwards):
+
+- `leave/rules.py` — pure functions: `count_working_days` (Monday–Friday,
+  inclusive, O(1)), `date_errors` (past start, reversed range, two calendar
+  years, no working days — same messages as the frontend preview) and
+  `today_in_app_zone` (Asia/Kolkata).
+- `leave/usage.py` — approved (used) and pending (reserved) days per leave type
+  for an employee and year. A request counts in the year of its start date.
+  Rejected and cancelled requests count for nothing.
+- `leave/services.py` — the only way to create or change a request:
+  `check_request` / `create_request` (validation, overlap with the employee's
+  pending or approved requests, balance), `approve_request` (rechecks status
+  and allowance), `reject_request` and `cancel_request` (pending only; releases
+  the reservation once). Errors are DRF `ValidationError` (400) or `Conflict`
+  (409).
+
+**Available = allowance − approved − pending.** Every balance-affecting
+operation, including allowance edits, first locks the employee's user row
+(`SELECT … FOR UPDATE`) inside a transaction, so for one employee they run one
+at a time. Two simultaneous requests cannot both spend the same days, and an
+approval cannot race a cancellation. Lock order is employee, then request.
+Tests in `leave/tests/test_concurrency.py` check this with real concurrent
+database connections.
+
+Leave requests are visible read-only in the Django admin site.
+
 ## Deactivating an account
 
 In the Django admin site, open the user and clear **Active**. The account loses
