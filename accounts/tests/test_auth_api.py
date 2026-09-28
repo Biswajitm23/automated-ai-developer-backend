@@ -128,6 +128,26 @@ class AuthApiTests(APITestCase):
 
         self.assertEqual(response.status_code, 204)
 
+    def test_login_without_remember_me_uses_a_browser_session_cookie(self):
+        response = self.login()
+
+        cookie = response.cookies[settings.SESSION_COOKIE_NAME]
+        self.assertEqual(cookie["max-age"], "")
+        self.assertEqual(cookie["expires"], "")
+        self.assertTrue(self.client.session.get_expire_at_browser_close())
+
+    def test_login_with_remember_me_sets_a_persistent_cookie(self):
+        response = self.client.post(
+            reverse("auth-login"),
+            {"username": "emma", "password": self.password, "remember_me": True},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        cookie = response.cookies[settings.SESSION_COOKIE_NAME]
+        self.assertEqual(cookie["max-age"], settings.REMEMBER_ME_SESSION_AGE)
+        self.assertFalse(self.client.session.get_expire_at_browser_close())
+
     def test_login_is_throttled_after_rate_exceeded(self):
         with mock.patch.dict(ScopedRateThrottle.THROTTLE_RATES, {"login": "2/minute"}):
             self.login(password="wrong-1")

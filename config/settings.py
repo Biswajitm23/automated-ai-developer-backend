@@ -128,11 +128,31 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-MAILERS = {
-    "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
-    },
-}
+# Email. Without SMTP_HOST, emails (e.g. password reset codes) are printed to the
+# runserver console instead of being sent — convenient for local development.
+
+if os.environ.get("SMTP_HOST"):
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+            "OPTIONS": {
+                "host": env("SMTP_HOST"),
+                "port": int(env("SMTP_PORT", "587")),
+                "username": os.environ.get("SMTP_USERNAME", ""),
+                "password": os.environ.get("SMTP_PASSWORD", ""),
+                "use_tls": env_bool("SMTP_USE_TLS", True),
+                "use_ssl": env_bool("SMTP_USE_SSL", False),
+                "timeout": 10,
+            },
+        },
+    }
+else:
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.console.EmailBackend",
+        },
+    }
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", "Employee Leave Management <no-reply@localhost>")
 
 
 # Django REST Framework
@@ -144,7 +164,10 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ["accounts.authentication.SessionAuthentication"],
     # Every endpoint requires login unless it explicitly opts out (e.g. health, login).
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
-    "DEFAULT_THROTTLE_RATES": {"login": env("LOGIN_THROTTLE_RATE", "20/minute")},
+    "DEFAULT_THROTTLE_RATES": {
+        "login": env("LOGIN_THROTTLE_RATE", "20/minute"),
+        "password_reset": env("PASSWORD_RESET_THROTTLE_RATE", "20/hour"),
+    },
     # Number of trusted reverse proxies in front of Django. 0 = ignore X-Forwarded-For
     # (clients could otherwise spoof it to dodge the login throttle).
     "NUM_PROXIES": int(env("DRF_NUM_PROXIES", "0")),
@@ -172,4 +195,14 @@ CSRF_COOKIE_SAMESITE = "Lax"
 # Set both to true in any HTTPS deployment.
 SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", False)
 CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", False)
+# Without "Remember me" the cookie ends with the browser session and is capped at
+# SESSION_COOKIE_AGE; with it the cookie persists for REMEMBER_ME_SESSION_AGE.
 SESSION_COOKIE_AGE = int(env("SESSION_COOKIE_AGE", "28800"))  # 8 hours
+REMEMBER_ME_SESSION_AGE = int(env("REMEMBER_ME_SESSION_AGE", "2592000"))  # 30 days
+
+
+# Forgot password — one-time codes sent by email.
+
+PASSWORD_RESET_CODE_TTL = int(env("PASSWORD_RESET_CODE_TTL", "600"))  # 10 minutes
+PASSWORD_RESET_MAX_ATTEMPTS = int(env("PASSWORD_RESET_MAX_ATTEMPTS", "5"))
+PASSWORD_RESET_RESEND_COOLDOWN = int(env("PASSWORD_RESET_RESEND_COOLDOWN", "60"))  # seconds

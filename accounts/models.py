@@ -38,3 +38,26 @@ class Profile(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user.get_username()} ({self.role})"
+
+
+class PasswordResetCode(models.Model):
+    """A one-time code emailed to a user who forgot their password.
+
+    Only an HMAC of the code is stored. A code is valid until it expires, is used,
+    is superseded by a newer code, or has had too many wrong guesses.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="password_reset_codes"
+    )
+    code_hash = models.CharField(max_length=128)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "used_at"])]
+
+    def __str__(self) -> str:
+        return f"Password reset code for {self.user.get_username()}"

@@ -107,8 +107,11 @@ as public below.
 |---|---|---|---|
 | `GET /api/health/` | public | 200 / 503 | – |
 | `GET /api/auth/csrf/` | public | 200 `{"csrfToken": "..."}` and `csrftoken` cookie | – |
-| `POST /api/auth/login/` | public, CSRF token required | 200 `{"user": {...}}` and `sessionid` cookie | 400 `{"detail": "Invalid username or password."}` (also for inactive accounts); 400 field errors; 403 CSRF; 429 too many attempts |
+| `POST /api/auth/login/` `{"username", "password", "remember_me"?}` | public, CSRF token required | 200 `{"user": {...}}` and `sessionid` cookie | 400 `{"detail": "Invalid username or password."}` (also for inactive accounts); 400 field errors; 403 CSRF; 429 too many attempts |
 | `POST /api/auth/logout/` | public, CSRF token required | 204, session deleted on the server | 403 CSRF |
+| `POST /api/auth/password-reset/request/` `{"email"}` | public, CSRF token required | 200, always the same message | 400 field errors; 403 CSRF; 429 |
+| `POST /api/auth/password-reset/verify/` `{"email", "code"}` | public, CSRF token required | 200, code not used up | 400 `{"code": [...]}`; 403 CSRF; 429 |
+| `POST /api/auth/password-reset/confirm/` `{"email", "code", "new_password"}` | public, CSRF token required | 200, password changed | 400 `{"code": [...]}` or `{"new_password": [...]}`; 403 CSRF; 429 |
 | `GET /api/auth/me/` | signed in | 200 `{"id", "username", "email", "first_name", "last_name", "role"}` | 401 |
 | `GET /api/admin/ping/` | `ADMIN` role | 200 `{"status": "ok", "role": "ADMIN"}` | 401 not signed in; 403 not an admin |
 
@@ -126,8 +129,37 @@ a CSRF failure.
 
 Browser flow: call `GET /api/auth/csrf/` with `credentials: "include"`, then
 send the returned token in the `X-CSRFToken` header on `POST` requests. The
-session cookie is `HttpOnly`, `SameSite=Lax`, and expires after
-`SESSION_COOKIE_AGE` seconds (8 hours by default).
+session cookie is `HttpOnly` and `SameSite=Lax`.
+
+**Remember me:** without `remember_me` the cookie ends when the browser closes,
+and the server also ends the session after `SESSION_COOKIE_AGE` seconds (8 hours
+by default). With `"remember_me": true` the cookie persists for
+`REMEMBER_ME_SESSION_AGE` seconds (30 days by default).
+
+### Forgot password
+
+1. `request` emails a 6-digit code to every active account with that email
+   address (case-insensitive). The response is identical for unknown addresses,
+   so the endpoint does not reveal which emails are registered. A new code
+   replaces the previous one; within `PASSWORD_RESET_RESEND_COOLDOWN` seconds
+   (60) no new code is sent.
+2. `verify` checks the code without using it up, so the frontend can move on to
+   the new-password step.
+3. `confirm` checks the code again, validates the new password with Django's
+   password validators, sets it, and emails a "password changed" notice.
+   Changing the password signs the user out of every existing session; they then
+   sign in with the new password.
+
+Codes expire after `PASSWORD_RESET_CODE_TTL` seconds (10 minutes), stop working
+after `PASSWORD_RESET_MAX_ATTEMPTS` wrong guesses (5), and are stored only as an
+HMAC. All three endpoints share the `PASSWORD_RESET_THROTTLE_RATE` limit (20 per
+hour per IP). Accounts without an email address cannot use this flow; an
+administrator resets their password in the Django admin site.
+
+**Email delivery:** with `SMTP_HOST` empty (the default) emails are printed to
+the `runserver` console, which is how you read the code locally. To send real
+emails, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`,
+`SMTP_USE_TLS` / `SMTP_USE_SSL` and `DEFAULT_FROM_EMAIL` in `.env`.
 
 Login attempts are throttled per client IP (`LOGIN_THROTTLE_RATE`, 20 per
 minute by default; HTTP 429 when exceeded). Limitations to address in a later
