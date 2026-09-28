@@ -172,6 +172,7 @@ REST_FRAMEWORK = {
     # Number of trusted reverse proxies in front of Django. 0 = ignore X-Forwarded-For
     # (clients could otherwise spoof it to dodge the login throttle).
     "NUM_PROXIES": int(env("DRF_NUM_PROXIES", "0")),
+    "EXCEPTION_HANDLER": "core.exceptions.exception_handler",
 }
 
 

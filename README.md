@@ -260,6 +260,24 @@ Administrator accounts are still created with `create_admin` or in the Django
 admin site (**Users → Add user**, then choose the role in the **Profile**
 section, which also has Department and Employee ID).
 
+## Employee leave API (ELM-005)
+
+For signed-in users with role `EMPLOYEE` (admins get 403 "Employee role
+required."). Only the caller's own records are ever returned; another user's
+request is a 404 `{"detail": "Not found."}`.
+
+| Method & path | Body / query | Success | Errors |
+|---|---|---|---|
+| `GET /api/me/balances/` | `year` optional (default: current Asia/Kolkata year) | `{year, balances: [{leave_type, year, allowance, approved, pending, available}]}`, both types | 400 bad year |
+| `GET /api/leave-requests/` | `year` (of the start date), `status`, `page`, `page_size` | Paginated own requests, newest first | 400 bad `status`/`year` |
+| `POST /api/leave-requests/` | `leave_type`, `start_date`, `end_date`, `reason` (1–500), `client_request_id` (UUID) | 201 request (`PENDING`, days reserved). The same `client_request_id` again → 200 with the original request | 400 with the ELM-004 rule messages, field errors |
+| `GET /api/leave-requests/preview/` | `leave_type`, `start_date`, `end_date` | Always 200: `{valid: true, working_days, balance}` or `{valid: false, working_days, errors}` | – |
+| `GET /api/leave-requests/{id}/` | – | 200 request incl. `reviewed_by`, `reviewed_at`, `review_remarks` | 404 |
+
+Any `employee` field in the body is ignored: requests always belong to the
+caller. Duplicate submissions are detected under the same per-employee lock as
+the balance check, so even two simultaneous copies create one request.
+
 ## Leave rules and balances (ELM-004)
 
 The rules from the Project Brief live in the `leave` app and are used by every

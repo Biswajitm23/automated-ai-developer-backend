@@ -89,9 +89,14 @@ class LeaveRequest(models.Model):
     reviewed_at = models.DateTimeField(null=True, blank=True)
     review_remarks = models.TextField(max_length=REMARKS_MAX_LENGTH, blank=True, default="")
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    # Generated once per form by the frontend; a repeated submission returns the original.
+    client_request_id = models.UUIDField(null=True, blank=True)
 
     class Meta:
         constraints = [
+            models.UniqueConstraint(
+                fields=["employee", "client_request_id"], name="leave_request_unique_client_id"
+            ),
             models.CheckConstraint(
                 condition=models.Q(end_date__gte=models.F("start_date")),
                 name="leave_request_end_not_before_start",

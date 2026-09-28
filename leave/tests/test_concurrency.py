@@ -1,4 +1,5 @@
 import threading
+import uuid
 from datetime import date
 
 from django.db import connection
@@ -86,3 +87,16 @@ class ConcurrencyTests(TransactionTestCase):
         self.assertTrue(any(isinstance(o[1], Conflict) for o in outcomes), outcomes)
         request.refresh_from_db()
         self.assertIn(request.status, {RequestStatus.APPROVED, RequestStatus.CANCELLED})
+
+    def test_simultaneous_copies_of_one_submission_create_one_request(self):
+        client_id = uuid.uuid4()
+        submit = lambda: services.create_request(  # noqa: E731
+            self.employee, "CASUAL", D("2026-10-05"), D("2026-10-06"), "Trip", today=TODAY, client_request_id=client_id
+        )
+
+        outcomes = run_concurrently(submit, submit, submit)
+
+        self.assertTrue(all(kind == "ok" for kind, _ in outcomes), outcomes)
+        self.assertEqual(len({result.pk for _, result in outcomes}), 1)
+        self.assertEqual(sorted(result.created_now for _, result in outcomes), [False, False, True])
+        self.assertEqual(LeaveRequest.objects.count(), 1)
