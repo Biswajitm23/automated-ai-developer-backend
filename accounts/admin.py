@@ -10,7 +10,7 @@ User = get_user_model()
 class ProfileInline(admin.StackedInline):
     model = Profile
     can_delete = False
-    fields = ("role",)
+    fields = ("role", "department", "employee_code")
     verbose_name_plural = "Profile"
 
 

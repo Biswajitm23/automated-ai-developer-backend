@@ -213,13 +213,52 @@ role (with staff and superuser access) without changing the password, so no
 password is needed. Add `--update-password` only if the password must also be
 reset.
 
-## Creating employee accounts
+## Employees and allowances (admin API)
 
-Until employee management is built into the app, sign in to the Django admin
-site at http://localhost:8000/admin/ as the administrator, then **Users → Add
-user**. Set the password and save. New users start as `Employee`; to change
-the role, choose it in the **Profile** section of the user's change page (the
-page that opens after saving) and save again.
+Administrators manage employees in the app (**Admin → Employees**), which uses
+these endpoints. All of them require the `ADMIN` role (403 for employees, 401
+when signed out) and a CSRF token on changes. Only accounts with role
+`EMPLOYEE` are listed and managed; admin accounts return 404 here.
+
+| Method & path | Body / query | Success | Errors |
+|---|---|---|---|
+| `GET /api/leave-types/` | – (any signed-in user) | `[{"code": "CASUAL", "name": "Casual Leave"}, {"code": "SICK", "name": "Sick Leave"}]` | 401 |
+| `GET /api/admin/employees/` | `q` (name, email, username, department or Employee ID), `status` = `active`/`inactive`/`all` (default), `ordering` = `name` (default) / `-created_at`, `page`, `page_size` (default 20, max 100) | `{count, next, previous, page, page_size, total_pages, results}` | 400 bad `status`/`ordering`; 404 `{"detail": "Invalid page."}` |
+| `POST /api/admin/employees/` | `first_name`, `last_name` (optional), `email`, `department`, `username`, `password`, `employee_code` (optional) | 201 employee (never the password) | 400 field errors: duplicate email/username/Employee ID (all case-insensitive), password validators, blank fields |
+| `GET /api/admin/employees/{id}/` | – | 200 employee | 404 |
+| `PATCH /api/admin/employees/{id}/` | any of `first_name`, `last_name`, `email`, `department`, `employee_code` | 200 employee | 400, 404. Role, username, password and `is_active` cannot be changed here |
+| `POST /api/admin/employees/{id}/deactivate/` · `…/reactivate/` | `{}` | 200 employee. Idempotent | 404 |
+| `GET /api/admin/employees/{id}/allowances/?year=2026` | `year` required, 2000–2100 | `{employee_id, year, allowances: [...]}`, one row per leave type; unset rows have `days: 0`, `updated_at: null` | 400 `{"year": [...]}`, 404 |
+| `PUT /api/admin/employees/{id}/allowances/{year}/{CASUAL\|SICK}/` | `{"days": 12}` (JSON integer 0–366) | 200 allowance row (created or updated) | 400 `{"days": [...]}`, incl. "Allowance cannot be less than approved plus pending leave (N days)."; 404 unknown employee, year or leave type |
+
+An employee is `{id, username, first_name, last_name, full_name, email,
+department, employee_code, is_active, created_at, updated_at}`. An allowance row
+is `{employee_id, year, leave_type, days, approved, pending, available,
+minimum_allowed, updated_at}`, where `available = days - approved - pending` and
+`minimum_allowed = approved + pending`.
+
+Rules:
+
+- **Unique email.** Checked case-insensitively against every account (admins
+  too), and also enforced by a PostgreSQL index on `LOWER(email)`.
+- **Employee ID** (`employee_code`, e.g. `BP081`) is optional, stored upper-case,
+  and unique when set.
+- **Passwords** are write-only, checked by Django's password validators and
+  stored hashed. They are never returned. Employees can later change theirs
+  with "Forgot password".
+- **Deactivating** keeps the account and all its data (allowances and, from
+  ELM-005, leave requests). The employee is refused on their next request and
+  cannot sign in. Reactivating restores access.
+- **Allowances** are whole days per employee, leave type and calendar year. No
+  row means 0 days. Negative values are rejected. An allowance cannot go below
+  approved plus pending leave for that type and year; the check runs while the
+  employee row is locked. Until leave requests exist (ELM-005), approved and
+  pending are always 0 (`leave/usage.py` is where ELM-005 plugs in).
+- Employees have no endpoint that changes their role, allowance or profile.
+
+Administrator accounts are still created with `create_admin` or in the Django
+admin site (**Users → Add user**, then choose the role in the **Profile**
+section, which also has Department and Employee ID).
 
 ## Deactivating an account
 
