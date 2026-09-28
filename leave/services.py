@@ -119,13 +119,31 @@ def check_request(employee, leave_type: str, start: date, end: date, today: date
 
 
 def create_request(
-    employee, leave_type: str, start: date, end: date, reason: str, today: date | None = None
+    employee,
+    leave_type: str,
+    start: date,
+    end: date,
+    reason: str,
+    today: date | None = None,
+    client_request_id=None,
 ) -> LeaveRequest:
-    """Create a PENDING request that reserves its working days, or raise ValidationError."""
+    """Create a PENDING request that reserves its working days, or raise ValidationError.
+
+    With `client_request_id`, a repeat from the same employee returns the original request
+    unchanged (check `request.created_now`); the check runs under the employee lock, so two
+    simultaneous submissions of one form still create a single request.
+    """
     with transaction.atomic():
         employee = _lock_employee(employee.pk)
+        if client_request_id is not None:
+            existing = LeaveRequest.objects.filter(
+                employee=employee, client_request_id=client_request_id
+            ).first()
+            if existing is not None:
+                existing.created_now = False
+                return existing
         working_days, _ = check_request(employee, leave_type, start, end, today)
-        return LeaveRequest.objects.create(
+        leave_request = LeaveRequest.objects.create(
             employee=employee,
             leave_type=leave_type,
             start_date=start,
@@ -133,7 +151,10 @@ def create_request(
             working_days=working_days,
             reason=reason,
             status=RequestStatus.PENDING,
+            client_request_id=client_request_id,
         )
+        leave_request.created_now = True
+        return leave_request
 
 
 def _lock_request(request_id: int) -> LeaveRequest:
