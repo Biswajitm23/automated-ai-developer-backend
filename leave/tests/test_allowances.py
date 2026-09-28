@@ -1,3 +1,4 @@
+from datetime import date
 from unittest import mock
 
 from django.urls import reverse
@@ -5,6 +6,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import Role
 from accounts.tests.helpers import make_password, make_user
+from leave import services
 from leave.models import Allowance
 from leave.usage import Usage
 
@@ -141,3 +143,27 @@ class AllowanceTests(APITestCase):
         self.assertEqual(self.get().status_code, 403)
         self.assertEqual(self.put(99).status_code, 403)
         self.assertFalse(Allowance.objects.exists())
+
+
+class AllowanceMinimumWithRealRequestsTests(APITestCase):
+    def test_reduction_below_approved_plus_pending_is_refused(self):
+        admin = make_user("boss", make_password(), role=Role.ADMIN)
+        employee = make_user("emma", make_password())
+        Allowance.objects.create(employee=employee, year=2026, leave_type="CASUAL", days=10)
+        today = date(2026, 9, 23)
+        approved = services.create_request(employee, "CASUAL", date(2026, 10, 5), date(2026, 10, 6), "A", today=today)
+        services.approve_request(approved.pk, admin)
+        services.create_request(employee, "CASUAL", date(2026, 10, 12), date(2026, 10, 14), "B", today=today)
+        self.client.force_authenticate(admin)
+        url = reverse("admin-employee-allowance", args=[employee.pk, 2026, "CASUAL"])
+
+        refused = self.client.put(url, {"days": 4}, format="json")
+        accepted = self.client.put(url, {"days": 5}, format="json")
+
+        self.assertEqual(
+            refused.json(), {"days": ["Allowance cannot be less than approved plus pending leave (5 days)."]}
+        )
+        self.assertEqual(
+            {k: accepted.json()[k] for k in ("days", "approved", "pending", "available", "minimum_allowed")},
+            {"days": 5, "approved": 2, "pending": 3, "available": 0, "minimum_allowed": 5},
+        )
