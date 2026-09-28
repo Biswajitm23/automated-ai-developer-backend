@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import employees, views
 
 urlpatterns = [
     path("auth/csrf/", views.CsrfView.as_view(), name="auth-csrf"),
@@ -23,4 +23,16 @@ urlpatterns = [
     ),
     path("auth/me/", views.MeView.as_view(), name="auth-me"),
     path("admin/ping/", views.AdminPingView.as_view(), name="admin-ping"),
+    path("admin/employees/", employees.EmployeeListView.as_view(), name="admin-employees"),
+    path("admin/employees/<int:pk>/", employees.EmployeeDetailView.as_view(), name="admin-employee"),
+    path(
+        "admin/employees/<int:pk>/deactivate/",
+        employees.EmployeeDeactivateView.as_view(),
+        name="admin-employee-deactivate",
+    ),
+    path(
+        "admin/employees/<int:pk>/reactivate/",
+        employees.EmployeeReactivateView.as_view(),
+        name="admin-employee-reactivate",
+    ),
 ]

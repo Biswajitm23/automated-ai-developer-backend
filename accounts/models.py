@@ -14,10 +14,15 @@ class Profile(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile"
     )
     role = models.CharField(max_length=16, choices=Role.choices, default=Role.EMPLOYEE)
+    department = models.CharField(max_length=100, blank=True, default="")
+    # Company employee number, e.g. "BP081". Optional; unique when set (NULL when not).
+    employee_code = models.CharField(max_length=20, null=True, blank=True, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs) -> None:
+        # One spelling per ID ("bp081" == "BP081"); blank means "no ID" (NULL, not unique-checked).
+        self.employee_code = (self.employee_code or "").strip().upper() or None
         super().save(*args, **kwargs)
         self.sync_user_flags()
 
