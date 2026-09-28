@@ -278,6 +278,22 @@ Any `employee` field in the body is ignored: requests always belong to the
 caller. Duplicate submissions are detected under the same per-employee lock as
 the balance check, so even two simultaneous copies create one request.
 
+## Admin review and decisions (ELM-007)
+
+For signed-in users with role `ADMIN` (employees get 403, anonymous 401).
+Requests of deactivated employees can still be reviewed and decided.
+
+| Method & path | Body | Success | Errors |
+|---|---|---|---|
+| `GET /api/admin/leave-requests/{id}/` | – | 200 request plus `balances` (both leave types, for the year of its start date) | 404 |
+| `POST /api/admin/leave-requests/{id}/approve/` | `remarks` optional (≤ 500) | 200 request, `APPROVED`: reserved days become used days | 404; 409 already processed, or the allowance no longer covers it |
+| `POST /api/admin/leave-requests/{id}/reject/` | `remarks` required (1–500) | 200 request, `REJECTED`: reserved days are released | 400 missing remarks; 404; 409 already processed |
+
+A decision records `reviewed_by`, `reviewed_at` and `review_remarks`, which the
+employee sees in `GET /api/leave-requests/{id}/`. Status and balance are
+rechecked under the same row locks as request creation, so repeated or
+simultaneous decisions change the balance only once (the loser gets 409).
+
 ## Leave rules and balances (ELM-004)
 
 The rules from the Project Brief live in the `leave` app and are used by every

@@ -1,8 +1,23 @@
 from django.urls import path
 
-from . import employee_views, views
+from . import admin_views, employee_views, views
 
 urlpatterns = [
+    path(
+        "admin/leave-requests/<int:pk>/",
+        admin_views.AdminLeaveRequestDetailView.as_view(),
+        name="admin-leave-request",
+    ),
+    path(
+        "admin/leave-requests/<int:pk>/approve/",
+        admin_views.ApproveView.as_view(),
+        name="admin-leave-request-approve",
+    ),
+    path(
+        "admin/leave-requests/<int:pk>/reject/",
+        admin_views.RejectView.as_view(),
+        name="admin-leave-request-reject",
+    ),
     path("leave-types/", views.LeaveTypeListView.as_view(), name="leave-types"),
     path("me/balances/", employee_views.MyBalancesView.as_view(), name="my-balances"),
     path("leave-requests/", employee_views.LeaveRequestCollectionView.as_view(), name="leave-requests"),
