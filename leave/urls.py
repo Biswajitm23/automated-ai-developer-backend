@@ -32,6 +32,11 @@ urlpatterns = [
         name="leave-request",
     ),
     path(
+        "leave-requests/<int:pk>/cancel/",
+        employee_views.CancelLeaveRequestView.as_view(),
+        name="leave-request-cancel",
+    ),
+    path(
         "admin/employees/<int:pk>/allowances/",
         views.EmployeeAllowancesView.as_view(),
         name="admin-employee-allowances",

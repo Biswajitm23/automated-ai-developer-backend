@@ -109,6 +109,16 @@ class LeaveRequestDetailView(EmployeeAPIView):
         return Response(LeaveRequestSerializer(get_object_or_404(own_requests(request.user), pk=pk)).data)
 
 
+class CancelLeaveRequestView(EmployeeAPIView):
+    """POST /api/leave-requests/{id}/cancel/ — PENDING → CANCELLED; the reservation is
+    released once. Another user's request is a 404; a non-pending one is a 409."""
+
+    def post(self, request: Request, pk: int) -> Response:
+        get_object_or_404(own_requests(request.user), pk=pk)
+        services.cancel_request(pk)
+        return Response(LeaveRequestSerializer(own_requests(request.user).get(pk=pk)).data)
+
+
 class LeavePreviewView(EmployeeAPIView):
     """GET /api/leave-requests/preview/?leave_type=&start_date=&end_date= — the create
     checks without saving. Always 200: {valid, working_days, balance} or {valid, working_days, errors}."""

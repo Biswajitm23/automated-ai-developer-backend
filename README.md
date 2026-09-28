@@ -273,10 +273,14 @@ request is a 404 `{"detail": "Not found."}`.
 | `POST /api/leave-requests/` | `leave_type`, `start_date`, `end_date`, `reason` (1–500), `client_request_id` (UUID) | 201 request (`PENDING`, days reserved). The same `client_request_id` again → 200 with the original request | 400 with the ELM-004 rule messages, field errors |
 | `GET /api/leave-requests/preview/` | `leave_type`, `start_date`, `end_date` | Always 200: `{valid: true, working_days, balance}` or `{valid: false, working_days, errors}` | – |
 | `GET /api/leave-requests/{id}/` | – | 200 request incl. `reviewed_by`, `reviewed_at`, `review_remarks` | 404 |
+| `POST /api/leave-requests/{id}/cancel/` (ELM-008) | – | 200 request, `CANCELLED` with `cancelled_at`; the reserved days are released | 404 not the caller's; 409 not pending (approved, rejected or already cancelled) |
 
 Any `employee` field in the body is ignored: requests always belong to the
 caller. Duplicate submissions are detected under the same per-employee lock as
 the balance check, so even two simultaneous copies create one request.
+Cancelling takes the same locks as admin decisions, so a cancel racing an
+approval, a rejection or another cancel has exactly one winner (the other gets
+409) and the balance changes once. Cancelled requests stay in the history.
 
 ## Admin review and decisions (ELM-007)
 
