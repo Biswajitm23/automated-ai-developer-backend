@@ -1,9 +1,9 @@
 # Employee Leave Management: Phase 1 status and Phase 2 proposal
 
 Trello card: ELM-P2-PLAN (https://trello.com/c/254KqMBB)
-Prepared by Jarvis on 30 Sep 2026. This is a proposal: nothing in Phase 2 is
-built until the owner approves it. Each feature below can be approved,
-removed or deferred on its own.
+Prepared by Jarvis on 30 Sep 2026; updated the same day with the owner's
+decisions (section 2). Task cards P2-001 to P2-017 are created in the Backlog
+list and stay there until the owner moves them to Ready.
 
 ---
 
@@ -13,11 +13,22 @@ Checked on 30 Sep 2026 against the latest code (backend branch
 `feature/ELM-009-admin-dashboard-filters` 8f7cbc9, frontend branch
 `feature/ELM-010-responsive-full-flow` d0e79db), not against card status.
 
-Evidence run today:
-- Backend: all **188 automated checks pass**; no database changes missing.
-- Frontend: type check and lint pass.
-- Browser (Chromium, test admin account): admin dashboard shows the right
-  counts; the Leave requests list shows all 12 requests with filters.
+**Passed** (re-run on 30 Sep 2026 after the owner's review):
+- Backend: 188 automated tests pass; no database changes missing
+  (backend branch at fa4563f, which contains all Phase 1 backend work).
+- Frontend: TypeScript type check and lint pass (d0e79db).
+- Browser, by hand (Chromium, test admin account): admin dashboard shows the
+  right counts; the Leave requests list shows all 12 requests with filters.
+  Earlier cards (ELM-002 to ELM-010) have their own browser checks.
+
+**Not verified** (the earlier "all checks pass" meant the backend tests
+only, and should have said so):
+- Frontend automated tests: there are none yet (P2-003).
+- Safari and Firefox: not tested.
+- Password-reset email delivery: no email account is connected (P2-002).
+- The merged result on `main`: nothing is merged yet, so `main` has not
+  been tested with Phase 1 in it (P2-001).
+- Deployment: not started (ELM-011).
 
 | Area | Status | Evidence / note |
 |---|---|---|
@@ -49,24 +60,24 @@ history apart from who approved or rejected a request and when.
 
 ---
 
-## 2. Decisions needed from the owner
+## 2. Owner decisions (30 Sep 2026)
 
-Short answers are enough. Our suggestion is in brackets.
+1. **Approvals:** one reporting manager approves each request; Admin is the
+   fallback when no manager is assigned. Nobody can approve their own request.
+2. **Half days:** yes, morning and afternoon.
+3. **Public holidays:** yes; Admin manages a yearly holiday list and those
+   days do not count as leave.
+4. **Email sender:** **pending.** The owner will confirm the sender address
+   and provide the configuration securely. The sender must be configurable;
+   no placeholder sender in production. Tracked as a blocker (P2-002).
+5. **Team visibility:** employees see only their own leave; managers see
+   their assigned team; Admin sees everyone.
+6. **Hosting and retention:** **pending.** Do not assume a retention period
+   and never delete leave history automatically.
+7. **Carry-forward:** outside Phase 2.
 
-1. **Approvals:** one manager approves, or manager then HR? *(One manager,
-   with Admin as fallback.)*
-2. **Half days:** allowed? Morning / afternoon only? *(Yes, morning or
-   afternoon.)*
-3. **Working days and holidays:** Monday–Friday plus a yearly holiday list
-   entered by Admin? *(Yes.)*
-4. **Email:** which account sends emails (for example a company no-reply
-   mailbox)? This also unblocks Forgot password today.
-5. **Team calendar:** can employees see teammates' approved leave dates
-   (never reasons)? *(Not at first; own calendar only.)*
-6. **Hosting and data retention:** where will the live system run, and how
-   long must history be kept? *(Same answer as ELM-011; keep history for at
-   least 7 years.)*
-7. **Scope:** keep carry-forward and accrual out of Phase 2? *(Yes.)*
+Tasks affected by the pending decisions carry the **Pending decision** label:
+P2-002, P2-010 and P2-011 (decision 4); P2-015 and P2-016 (decision 6).
 
 ---
 
@@ -74,14 +85,14 @@ Short answers are enough. Our suggestion is in brackets.
 
 Estimates are in developer-days for Jarvis, as ranges, and include tests and
 browser checks. They assume the decisions above go with our suggestion and
-that Phase 1 is merged first. `→` shows what a task depends on.
+that Phase 1 is merged first. Decisions 4 and 6 are still pending. `→` shows what a task depends on.
 
 ### Milestone 1: Foundation
 
 | ID | Task | Done when | Estimate |
 |---|---|---|---|
 | P2-001 | Merge Phase 1 into `main` in both repositories | All 16 PRs merged in order; `main` passes all checks and runs the full flow | 0.5–1 |
-| P2-002 | Connect the email account | A real reset code arrives in an inbox; failures are logged without codes or passwords | 0.5 (→ decision 4) |
+| P2-002 | Connect the email account | A real reset code arrives in an inbox; failures are logged without codes or passwords | 0.5 (→ decision 4, pending) |
 | P2-003 | Website test setup | Automated browser tests cover sign-in, apply, approve, cancel; run with one command | 1–2 |
 | P2-004 | Departments and reporting managers | Admin manages departments and assigns each employee a manager; new Manager role | 2–3 |
 | P2-005 | Change history (audit) foundation | Changes to allowances, employee status, roles and decisions are recorded with who, when, before and after; Admin only | 2–3 |
@@ -109,8 +120,8 @@ that Phase 1 is merged first. `→` shows what a task depends on.
 
 | ID | Task | Done when | Estimate |
 |---|---|---|---|
-| P2-015 | Backup and restore | Written steps; a restore is tested on a separate database | 1–2 (→ decision 6) |
-| P2-016 | Operations guide | Settings, health check and how to roll back a release are documented | 1 |
+| P2-015 | Backup and restore | Written steps; a restore is tested on a separate database | 1–2 (→ decision 6, pending) |
+| P2-016 | Operations guide | Settings, health check and how to roll back a release are documented | 1 (→ decision 6, pending) |
 | P2-017 | Jarvis worker (extends AUTO-002) | Start, stop and status commands; one card at a time by priority; survives restarts without repeating work or comments; handles failed tests and expired access | 3–5 (→ AUTO-002 decisions) |
 
 **Total:** about 27–42 developer-days across 17 tasks. No delivery date is
@@ -138,10 +149,30 @@ Payroll, biometric attendance, native mobile apps, multi-company billing,
 AI approving or rejecting leave, and accrual / carry-forward (unless
 approved separately).
 
-## 6. After approval
+## 6. Task cards
 
-Jarvis creates one Trello card per approved task, labelled Phase-2 and with
-its milestone, linked to this proposal and to the cards it depends on. No
-card is started automatically. The brief says to create them in Backlog, but
-that list is now called Ready, where cards get picked up. So the owner should
-say whether to add them to Ready, or to a separate list until released.
+One Trello card per task (P2-001 to P2-017) is in the **Backlog** list,
+labelled Phase-2 plus a priority, with its milestone, dependencies and
+acceptance criteria in the description. Nothing is started until the owner
+moves a card to Ready. P2-001 to P2-003 close the Phase 1 gaps and come
+first.
+
+| Task | Labels | Card |
+|---|---|---|
+| P2-001 | CRITICAL, P0 | https://trello.com/c/UUT03bqC |
+| P2-002 | CRITICAL, P0, Pending decision | https://trello.com/c/bEEl3Zjq |
+| P2-003 | CRITICAL, P0 | https://trello.com/c/2Wg9YYoM |
+| P2-004 | P0 | https://trello.com/c/WtupJL3P |
+| P2-005 | P0 | https://trello.com/c/U8kMJfHE |
+| P2-006 | P0 | https://trello.com/c/C64P0Aza |
+| P2-007 | P1 | https://trello.com/c/8yRFhj9Y |
+| P2-008 | P1 | https://trello.com/c/ZsKTxqJY |
+| P2-009 | P2 | https://trello.com/c/JgPQQMhz |
+| P2-010 | P1, Pending decision | https://trello.com/c/HbwK9auT |
+| P2-011 | P1, Pending decision | https://trello.com/c/Lr5Tee8V |
+| P2-012 | P1 | https://trello.com/c/W7xEE1Q0 |
+| P2-013 | P1 | https://trello.com/c/Oa31Ia5S |
+| P2-014 | P2 | https://trello.com/c/4b808RRH |
+| P2-015 | P1, Pending decision | https://trello.com/c/3UhiLW8W |
+| P2-016 | P2, Pending decision | https://trello.com/c/BSp1wGhF |
+| P2-017 | P1 | https://trello.com/c/BFOHqU7K |
