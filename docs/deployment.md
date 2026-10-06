@@ -38,8 +38,7 @@ Trello:
 ## 1. Backend on Railway
 
 1. New project > Deploy from GitHub repo > backend repository, branch
-   `feature/ELM-011-demo-deployment` (switch to `main` once Phase 1 is merged,
-   P2-001). `railway.json` sets the build, runs `migrate` before each release,
+   `main`. `railway.json` sets the build, runs `migrate` before each release,
    starts gunicorn and checks `/api/health/`.
 2. Add a PostgreSQL database to the project.
 3. Backend service variables (Railway references in `${{ }}`):
@@ -113,4 +112,3 @@ sets new passwords. There is no public sign-up: accounts are created by Admin.
   through Render, so the limit (20 sign-in attempts a minute) is shared by all
   demo users. Fine for a demo; revisit before real use.
 - Emails are not sent (P2-002 pending).
-- The site runs from the ELM-011 branches until Phase 1 is merged (P2-001).
