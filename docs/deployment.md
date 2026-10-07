@@ -5,6 +5,17 @@ Trello card: ELM-011 (https://trello.com/c/jzNxTkHE). Owner decisions of
 plans or trial credit only, owner creates the accounts, the login page is public
 and everything else requires sign-in, fictional data only, no public sign-up.
 
+## Current demo (7 Oct 2026)
+
+| Part | Where |
+|---|---|
+| Website | https://elm-frontend-gjcu.onrender.com (Render service `elm-frontend`) |
+| Backend | https://automated-ai-developer-backend-production.up.railway.app (Railway project `unique-illumination`, service `automated-ai-developer-backend`) |
+| Database | Railway project `unique-illumination`, service `Postgres` |
+
+The owner rebuilt the Railway services on 7 Oct 2026; the earlier
+`elm-backend` service and its database no longer exist.
+
 ```
 Browser ──► Render (Next.js website) ──/api/...──► Railway (Django + gunicorn) ──► Railway PostgreSQL
 ```
@@ -55,6 +66,13 @@ Trello:
    | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `${{Postgres.PGDATABASE}}` / `${{Postgres.PGUSER}}` / `${{Postgres.PGPASSWORD}}` |
    | `POSTGRES_HOST` / `POSTGRES_PORT` | `${{Postgres.PGHOST}}` / `${{Postgres.PGPORT}}` |
    | `DRF_NUM_PROXIES` | `0` (see "Known limits") |
+   | `PORT` | `8080` (must match the domain's target port) |
+
+   Do not paste the local `.env` here: its `POSTGRES_*` values point at the
+   development computer and the deploy fails with "connection refused" on
+   `127.0.0.1:5433`. Type the `${{ }}` references without leading spaces; a
+   value of ` ${{Postgres.PGDATABASE}}` fails with `database " railway" does
+   not exist`.
 
    No SMTP settings: email is pending the owner's decision (P2-002), so
    "Forgot password" codes are not delivered on the demo.
@@ -74,12 +92,19 @@ Trello:
 ## 3. Demo data and accounts
 
 Load fictional data once, into the empty demo database, from the development
-computer using the database's public connection values (Railway > Postgres >
-Connect > Public network), exported in the shell for this one command only:
+computer using the database's public connection values. `postgres.railway.internal`
+only resolves inside Railway, so turn on Postgres > Settings > Networking >
+TCP Proxy (port 5432) and use the `*.proxy.rlwy.net` host and port it shows.
+Put the five `POSTGRES_*` values in a private file (`chmod 600`), outside any
+repository, and load it for this one command only:
 
 ```bash
-.venv/bin/python manage.py seed_demo --credentials-file ~/elm-demo-accounts.txt
+set -a && . ~/elm-railway-db.env && set +a && \
+  .venv/bin/python manage.py migrate --noinput && \
+  .venv/bin/python manage.py seed_demo --credentials-file ~/elm-demo-accounts.txt
 ```
+
+Remove the TCP proxy afterwards so the database is reachable only from Railway.
 
 It creates one administrator (DM001) and two employees (DM002, DM003) with
 allowances and a few requests, and writes generated passwords **only** to that
@@ -94,6 +119,18 @@ sets new passwords. There is no public sign-up: accounts are created by Admin.
 - Employee: sign in, apply for leave, see it as Pending.
 - Admin: sign in, approve it; the employee then sees Approved.
 - Record the results on the card.
+
+### Results, 7 Oct 2026
+
+Run against the website address, so every call went through Render to Railway:
+
+- Health: `{"status":"ok","database":"ok"}`.
+- Signed out: leave list answers 401; in a browser `/admin/requests` goes to
+  `/login`. A wrong password is refused.
+- Employee DM002 signs in, sees balances, is refused the admin list (403),
+  submits one day of Casual Leave for 16 Nov 2026 (Pending).
+- Admin DM001 signs in and approves it; DM002 then sees it as Approved.
+- Sign-out works and the leave list is refused afterwards.
 
 ## Recovery
 
