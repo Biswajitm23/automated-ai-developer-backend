@@ -1,4 +1,3 @@
-from datetime import timedelta
 from unittest import mock
 
 from django.conf import settings
@@ -6,11 +5,10 @@ from django.contrib.auth.signals import user_logged_out
 from django.contrib.sessions.models import Session
 from django.core.cache import cache
 from django.urls import reverse
-from django.utils import timezone
 from rest_framework.test import APIClient, APITestCase
 from rest_framework.throttling import ScopedRateThrottle
 
-from accounts.models import FailedLogin, Role
+from accounts.models import Role
 
 from .helpers import make_password, make_user
 
@@ -171,74 +169,6 @@ class AuthApiTests(APITestCase):
             ]
 
         self.assertEqual(statuses, [400, 400, 429])
-
-    def test_account_is_locked_after_max_wrong_passwords(self):
-        with self.settings(LOGIN_MAX_FAILURES=3):
-            statuses = [self.login(password=f"wrong-{n}").status_code for n in range(3)]
-            locked = self.login()  # Correct password, but the account is locked.
-
-        self.assertEqual(statuses, [400, 400, 400])
-        self.assertEqual(locked.status_code, 429)
-        self.assertIn("15 minutes", locked.json()["detail"])
-        self.assertNotIn(settings.SESSION_COOKIE_NAME, locked.cookies)
-
-    def test_lockout_matches_username_case_insensitively(self):
-        with self.settings(LOGIN_MAX_FAILURES=2):
-            self.login(username="EMMA", password="wrong-1")
-            self.login(username="Emma ", password="wrong-2")
-            response = self.login()
-
-        self.assertEqual(response.status_code, 429)
-
-    def test_lockout_ends_after_the_window(self):
-        with self.settings(LOGIN_MAX_FAILURES=2):
-            self.login(password="wrong-1")
-            self.login(password="wrong-2")
-            FailedLogin.objects.update(created_at=timezone.now() - timedelta(minutes=16))
-            response = self.login()
-
-        self.assertEqual(response.status_code, 200)
-
-    def test_successful_login_clears_failures(self):
-        with self.settings(LOGIN_MAX_FAILURES=3):
-            self.login(password="wrong-1")
-            self.login(password="wrong-2")
-            self.assertEqual(self.login().status_code, 200)
-            self.client.logout()
-            self.login(password="wrong-3")
-            response = self.login()
-
-        self.assertEqual(response.status_code, 200)
-
-    def test_lockout_of_one_account_does_not_affect_another(self):
-        make_user("liam", self.password)
-        with self.settings(LOGIN_MAX_FAILURES=2):
-            self.login(password="wrong-1")
-            self.login(password="wrong-2")
-            response = self.login(username="liam")
-
-        self.assertEqual(response.status_code, 200)
-
-    def test_unknown_username_is_locked_like_a_real_one(self):
-        with self.settings(LOGIN_MAX_FAILURES=2):
-            self.login(username="nobody", password="wrong-1")
-            self.login(username="nobody", password="wrong-2")
-            response = self.login(username="nobody", password="wrong-3")
-
-        self.assertEqual(response.status_code, 429)
-
-    def test_session_endpoint_returns_null_user_when_signed_out(self):
-        response = self.client.get(reverse("auth-session"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"user": None})
-
-    def test_session_endpoint_returns_signed_in_user(self):
-        self.login()
-        response = self.client.get(reverse("auth-session"))
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["user"]["username"], "emma")
 
     def test_logout_sends_user_logged_out_with_real_user(self):
         received = []

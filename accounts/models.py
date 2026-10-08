@@ -66,17 +66,3 @@ class PasswordResetCode(models.Model):
 
     def __str__(self) -> str:
         return f"Password reset code for {self.user.get_username()}"
-
-
-class FailedLogin(models.Model):
-    """One wrong sign-in attempt for a username (lower-cased), kept only for the lockout window.
-
-    Stored in the database, not the cache, so every server worker sees the same count.
-    The username may not belong to any account; the response must not reveal that.
-    """
-
-    username = models.CharField(max_length=150, db_index=True)
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-
-    def __str__(self) -> str:
-        return f"Failed sign-in for {self.username}"
