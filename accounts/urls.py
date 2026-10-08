@@ -21,6 +21,7 @@ urlpatterns = [
         views.PasswordResetConfirmView.as_view(),
         name="auth-password-reset-confirm",
     ),
+    path("auth/session/", views.SessionView.as_view(), name="auth-session"),
     path("auth/me/", views.MeView.as_view(), name="auth-me"),
     path("admin/ping/", views.AdminPingView.as_view(), name="admin-ping"),
     path("admin/employees/", employees.EmployeeListView.as_view(), name="admin-employees"),

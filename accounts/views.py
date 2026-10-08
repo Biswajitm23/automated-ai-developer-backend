@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.password_validation import validate_password
@@ -16,7 +18,7 @@ from rest_framework.views import APIView
 
 from . import password_reset
 from .authentication import enforce_csrf
-from .models import PasswordResetCode
+from .models import FailedLogin, PasswordResetCode
 from .permissions import IsAdminRole
 from .roles import get_role
 from .serializers import (
@@ -28,6 +30,10 @@ from .serializers import (
 )
 
 INVALID_CREDENTIALS = "Invalid username or password."
+LOCKED_OUT = (
+    "Too many wrong attempts for this account. Please wait 15 minutes and try again, "
+    "or reset your password."
+)
 RESET_CODE_SENT = (
     "If an account uses this email address, a reset code has been sent to it."
 )
@@ -57,15 +63,31 @@ class LoginView(APIView):
         enforce_csrf(request)
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        username = serializer.validated_data["username"]
+        key = username.strip().lower()[:150]
+
+        # Lock the username, not the network address: every request reaches Django
+        # through the website's proxy, and the count lives in the database so all
+        # workers share it. Unknown usernames are locked the same way, so the answer
+        # does not reveal whether an account exists.
+        window_start = timezone.now() - timedelta(seconds=settings.LOGIN_LOCKOUT_SECONDS)
+        if (
+            FailedLogin.objects.filter(username=key, created_at__gte=window_start).count()
+            >= settings.LOGIN_MAX_FAILURES
+        ):
+            return Response({"detail": LOCKED_OUT}, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
         user = authenticate(
             request._request,
-            username=serializer.validated_data["username"],
+            username=username,
             password=serializer.validated_data["password"],
         )
         if user is None:
+            FailedLogin.objects.filter(created_at__lt=window_start).delete()
+            FailedLogin.objects.create(username=key)
             return Response({"detail": INVALID_CREDENTIALS}, status=status.HTTP_400_BAD_REQUEST)
 
+        FailedLogin.objects.filter(username=key).delete()
         login(request._request, user)
         if serializer.validated_data["remember_me"]:
             # Persistent cookie that survives closing the browser.
@@ -163,6 +185,17 @@ class PasswordResetConfirmView(APIView):
 
         password_reset.notify_password_changed(user)
         return Response({"detail": "Your password has been updated. You can now sign in."})
+
+
+class SessionView(APIView):
+    """Who is signed in, if anyone. Always 200 ({"user": null} when signed out), so the
+    sign-in page can check without the browser logging a failed request."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request: Request) -> Response:
+        user = request.user
+        return Response({"user": UserSerializer(user).data if user.is_authenticated else None})
 
 
 class MeView(APIView):
