@@ -145,11 +145,7 @@ Run against the website address, so every call went through Render to Railway:
 
 ## Known limits of the demo
 
-- After 5 wrong passwords for one username within 15 minutes, that username
-  is locked for the rest of the 15 minutes (`LOGIN_MAX_FAILURES`,
-  `LOGIN_LOCKOUT_SECONDS`). The count is kept in the database, so all workers
-  share it. Someone who knows a username can lock it this way; it unlocks by
-  itself after 15 minutes.
-- The older per-address limit (20 sign-in attempts a minute) still applies.
-  All requests reach Django through Render, so it is shared by all demo users.
+- The login throttle counts per network address. All requests reach Django
+  through Render, so the limit (20 sign-in attempts a minute) is shared by all
+  demo users. Fine for a demo; revisit before real use.
 - Emails are not sent (P2-002 pending).
