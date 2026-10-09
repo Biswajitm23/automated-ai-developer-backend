@@ -140,10 +140,14 @@ STORAGES = {
 
 # HTTPS behind a hosting proxy (e.g. Railway), which ends TLS and forwards plain HTTP
 # with X-Forwarded-Proto. Only enable where that proxy always sets the header.
-if env_bool("DJANGO_BEHIND_HTTPS_PROXY", False):
+BEHIND_HTTPS_PROXY = env_bool("DJANGO_BEHIND_HTTPS_PROXY", False)
+if BEHIND_HTTPS_PROXY:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
     SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]  # Platform health checks may use plain HTTP.
+    # Tell browsers to use HTTPS only (one year). Subdomains are left out: the
+    # hosting platform's domain is shared with other customers.
+    SECURE_HSTS_SECONDS = int(env("SECURE_HSTS_SECONDS", "31536000"))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -212,13 +216,20 @@ CSRF_TRUSTED_ORIGINS = env_list(
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
-# Set both to true in any HTTPS deployment.
-SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", False)
-CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", False)
+# HTTPS-only cookies wherever the site runs behind HTTPS; plain-HTTP local
+# development keeps them off unless set explicitly.
+SESSION_COOKIE_SECURE = env_bool("SESSION_COOKIE_SECURE", BEHIND_HTTPS_PROXY)
+CSRF_COOKIE_SECURE = env_bool("CSRF_COOKIE_SECURE", BEHIND_HTTPS_PROXY)
 # Without "Remember me" the cookie ends with the browser session and is capped at
 # SESSION_COOKIE_AGE; with it the cookie persists for REMEMBER_ME_SESSION_AGE.
 SESSION_COOKIE_AGE = int(env("SESSION_COOKIE_AGE", "28800"))  # 8 hours
 REMEMBER_ME_SESSION_AGE = int(env("REMEMBER_ME_SESSION_AGE", "2592000"))  # 30 days
+
+
+# Sign-in lockout: after this many wrong passwords for one username within the
+# window, further attempts for it are refused until the window has passed.
+LOGIN_MAX_FAILURES = int(env("LOGIN_MAX_FAILURES", "5"))
+LOGIN_LOCKOUT_SECONDS = int(env("LOGIN_LOCKOUT_SECONDS", "900"))  # 15 minutes
 
 
 # Forgot password — one-time codes sent by email.
